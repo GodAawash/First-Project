@@ -8,9 +8,17 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "@tailwindcss/cli": "^4.1.8",
     "tailwindcss": "^4.1.8"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GodAawash/First-Project.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GodAawash/First-Project/issues"
+  },
+  "homepage": "https://github.com/GodAawash/First-Project#readme",
+  "description": ""
 }
