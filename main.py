@@ -1,28 +1,61 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import ssl
 import socket
 import whois
 from datetime import datetime, timezone
 import os
+from urllib.parse import urlparse
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+def extract_hostname(url: str) -> str:
+    try:
+        # If the URL doesn't start with a protocol, add https:// to help urlparse
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+            
+        parsed = urlparse(url)
+        if not parsed.netloc:
+            return url
+            
+        # Get the hostname and remove 'www.' if present
+        hostname = parsed.netloc.lower()
+        if hostname.startswith('www.'):
+            hostname = hostname[4:]
+            
+        return hostname
+    except Exception:
+        # If parsing fails, return the original input
+        return url
 
 
 def get_domain_info(hostname):
     try:
-        # Clean the hostname
-        hostname = hostname.replace('https://', '').replace('http://', '').split('/')[0]
-
-        # Perform WHOIS query
         domain_info = whois.whois(hostname)
 
-        # Get expiration date
+        # Handle possible list values
         expiry_date = domain_info.expiration_date
         if isinstance(expiry_date, list):
             expiry_date = expiry_date[0]
 
-        # Get creation and updated dates
         creation_date = domain_info.creation_date
         if isinstance(creation_date, list):
             creation_date = creation_date[0]
@@ -32,7 +65,6 @@ def get_domain_info(hostname):
             updated_date = updated_date[0]
 
         if expiry_date:
-            # Ensure timezone awareness
             if not expiry_date.tzinfo:
                 expiry_date = expiry_date.replace(tzinfo=timezone.utc)
 
@@ -48,7 +80,6 @@ def get_domain_info(hostname):
                 "updated_date": updated_date.strftime('%Y-%m-%d') if isinstance(updated_date, datetime) else str(updated_date)
             }
 
-        # WHOIS info is incomplete
         return {
             "domain_name": hostname,
             "registrar": "Not available",
@@ -58,7 +89,7 @@ def get_domain_info(hostname):
             "updated_date": "Not available"
         }
 
-    except Exception as e:
+    except Exception:
         return {
             "domain_name": hostname,
             "registrar": "Not available",
@@ -69,19 +100,18 @@ def get_domain_info(hostname):
         }
 
 
-def get_certificate_expiry(hostname):
+def get_certificate_expiry(input_url: str):
     try:
-        hostname = hostname.replace('https://', '').replace('http://', '').split('/')[0]
-
-        # Get domain info
+        hostname = extract_hostname(input_url)
         domain_info = get_domain_info(hostname)
 
         try:
-            context = ssl.create_default_context()
-            with socket.create_connection((hostname, 443)) as sock:
+            context = ssl._create_unverified_context()
+            with socket.create_connection((hostname, 443), timeout=5) as sock:
                 with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-                    cert = ssock.getpeercert()
-                    expiry_date = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z').replace(tzinfo=timezone.utc)
+                    der_cert = ssock.getpeercert(binary_form=True)
+                    cert = x509.load_der_x509_certificate(der_cert, default_backend())
+                    expiry_date = cert.not_valid_after.replace(tzinfo=timezone.utc)
                     current_time = datetime.now(timezone.utc)
                     days_remaining = (expiry_date - current_time).days
 
@@ -99,8 +129,8 @@ def get_certificate_expiry(hostname):
         except (socket.gaierror, ssl.SSLError, ConnectionRefusedError, OSError):
             return {
                 "domain": hostname,
-                "ssl_expiry_date": "Not available",
-                "ssl_days_remaining": "Not available",
+                "ssl_expiry_date": "Not available (host unreachable or no SSL)",
+                "ssl_days_remaining": "N/A",
                 "domain_expiry_date": domain_info["domain_expiry_date"],
                 "domain_days_remaining": domain_info["domain_days_remaining"],
                 "registrar": domain_info["registrar"],
@@ -114,9 +144,10 @@ def get_certificate_expiry(hostname):
 
 @app.get("/")
 async def read_root():
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
+    try:
+        return FileResponse("static/index.html")
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error: {str(e)}</h1>", status_code=404)
 
 
 @app.get("/check-ssl/{domain}")
@@ -127,4 +158,4 @@ async def check_ssl(domain: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
