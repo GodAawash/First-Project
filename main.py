@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static directory
+# Mount static directory for assets
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -145,7 +145,7 @@ def get_certificate_expiry(input_url: str):
 @app.get("/")
 async def read_root():
     try:
-        return FileResponse("static/index.html")
+        return FileResponse("static/index.html", media_type="text/html")
     except Exception as e:
         return HTMLResponse(f"<h1>Error: {str(e)}</h1>", status_code=404)
 
@@ -154,8 +154,3 @@ async def read_root():
 async def check_ssl(domain: str):
     result = get_certificate_expiry(domain)
     return JSONResponse(content=result)
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0",port=9000)
