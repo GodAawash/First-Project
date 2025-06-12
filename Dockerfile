@@ -6,6 +6,6 @@ COPY . .
 
 RUN pip install -r requirements.txt
 
-EXPOSE 3000
+EXPOSE 9000
 
 CMD ["python", "main.py"] 
