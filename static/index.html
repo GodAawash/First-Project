@@ -22,11 +22,11 @@
       position: absolute;
       top: 1rem;
       left: 1rem;
-      z-index: 1000;
     }
 
     .top-left-logo img {
       width: 120px;
+      max-width: 100%;
       height: auto;
     }
 
@@ -38,7 +38,6 @@
     }
 
     .card {
-      
       border: none;
       border-radius: 1.25rem;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
@@ -85,7 +84,6 @@
       gap: 0.25rem;
       padding: 0.75rem 1.25rem;
       font-size: 1.1rem;
-     
     }
 
     .details-section {
@@ -137,12 +135,47 @@
       h4.text-primary {
         font-size: 1.5rem;
       }
+
+      .top-left-logo img {
+        width: 90px;
+      }
     }
 
     @media (max-width: 576px) {
       .details-row strong {
         display: block;
         margin-bottom: 0.25rem;
+      }
+
+      .top-left-logo {
+        position: static;
+        margin-bottom: 1rem;
+        text-align: center;
+      }
+
+      .top-left-logo img {
+        width: 80px;
+      }
+
+      .input-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .input-group .form-control,
+      .input-group .btn,
+      .input-group .input-group-text {
+        width: 100%;
+        border-radius: 0.5rem !important;
+      }
+
+      .input-group .btn {
+        margin-top: 0.5rem;
+        border-radius: 0.5rem !important;
+      }
+
+      .input-group .input-group-text {
+        margin-bottom: 0.5rem;
       }
     }
   </style>
@@ -157,9 +190,9 @@
   <div class="container">
     <div class="card">
       <h4 class="text-center text-primary">SSL & Domain Expiry Checker</h4>
-      <form id="sslForm">
-        <div class="input-group mb-3">
-          <span class="input-group-text"><i class="bi bi-globe2"></i></span>
+      <form id="sslForm" class="w-100">
+        <div class="input-group mb-3 flex-nowrap">
+          
           <input type="text" id="domain" class="form-control" placeholder="Enter domain (e.g., google.com)" required />
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-search"></i> Check
@@ -228,7 +261,7 @@
       error.style.display = 'none';
 
       try {
-        const response = await fetch(`/check-ssl/${domain}`);
+        const response = await fetch(`/check-ssl/${domain}`)
         const data = await response.json();
 
         if (response.ok) {
